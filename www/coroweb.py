@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-__author__ = 'Michael Liao'
-
 import os
 import inspect
 import logging
@@ -48,6 +44,8 @@ def post(path):
 # VAR_POSITIONAL		相当于是 *args
 # VAR_KEYWORD			相当于是 **kw
 # POSITIONAL_OR_KEYWORD	可以是位置参数也可以是关键字参数
+
+#收集没有默认值的命名关键字参数
 def get_required_kw_args(fn):
     args = []
     params = inspect.signature(fn).parameters
@@ -57,7 +55,7 @@ def get_required_kw_args(fn):
             args.append(name)
     return tuple(args)
 
-
+#获取命名关键字参数
 def get_named_kw_args(fn):
     args = []
     params = inspect.signature(fn).parameters
@@ -67,7 +65,7 @@ def get_named_kw_args(fn):
             args.append(name)
     return tuple(args)
 
-
+#判断有没有命名关键字参数
 def has_named_kw_args(fn):
     params = inspect.signature(fn).parameters
     # 判断是否有关键字参数
@@ -75,7 +73,7 @@ def has_named_kw_args(fn):
         if param.kind == inspect.Parameter.KEYWORD_ONLY:
             return True
 
-
+#判断有没有关键字参数
 def has_var_kw_arg(fn):
     params = inspect.signature(fn).parameters
     # 判断是否有关键字变长参数，VAR_KEYWORD对应**kw
@@ -83,7 +81,7 @@ def has_var_kw_arg(fn):
         if param.kind == inspect.Parameter.VAR_KEYWORD:
             return True
 
-
+#判断是否含有名叫'request'参数，且该参数是否为最后一个参数
 def has_request_arg(fn):
     sig = inspect.signature(fn)
     params = sig.parameters
@@ -104,7 +102,7 @@ def has_request_arg(fn):
 # RequestHandler目的就是从URL处理函数（如handlers.index）中分析其需要接收的参数，从web.request对象中获取必要的参数，
 # 调用URL处理函数，然后把结果转换为web.Response对象，这样，就完全符合aiohttp框架的要求
 class RequestHandler(object):
-
+	#接受app参数
     def __init__(self, app, fn):
         self._app = app
         self._func = fn
@@ -196,7 +194,7 @@ def add_static(app):
     app.router.add_static('/static/', path)
     logging.info('add static %s => %s' % ('/static/', path))
 
-
+#用来注册一个URL处理函数，主要用来验证函数是否有包含URL的响应方法与路径信息，以及将函数变为协程。
 def add_route(app, fn):
     method = getattr(fn, '__method__', None)
     path = getattr(fn, '__route__', None)
@@ -211,7 +209,7 @@ def add_route(app, fn):
     # 自省函数 '__call__'
     app.router.add_route(method, path, RequestHandler(app, fn))
 
-
+#可以批量注册的函数
 def add_routes(app, module_name):
     n = module_name.rfind('.')
     if n == (-1):
@@ -231,12 +229,3 @@ def add_routes(app, module_name):
             path = getattr(fn, '__route__', None)
             if method and path:
                 add_route(app, fn)
-
-
-
-
-
-
-
-
-

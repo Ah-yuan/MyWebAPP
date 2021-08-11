@@ -1,22 +1,20 @@
-import os
-import json
-import time
-from datetime import datetime
+# 修改app.py
+import logging; logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s:%(levelname)s: %(message)s")
 
+import orm
+from config import configs
+from handlers import cookie2user, COOKIE_NAME
 
-import asyncio
+logging.basicConfig(level=logging.INFO)
+from coroweb import add_routes, add_static
 from aiohttp import web
 # FileSystemLoader是文件系统加载器，用来加载模板路径
 from jinja2 import Environment, FileSystemLoader
-import orm
-from config import configs
-from coroweb import add_routes, add_static
-from handlers import cookie2user, COOKIE_NAME
-import logging
-logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s:%(levelname)s: %(message)s")
+import asyncio, os, json, time
+from aiohttp import web
 
 
-def init__jinja2(app, **kw):
+def init_jinja2(app, **kw):
     logging.info('init jinja2...')
     options = dict(
         # 自动转义xml/html的特殊字符
@@ -45,12 +43,15 @@ def init__jinja2(app, **kw):
     # 所有的一切是为了给app添加__templating__字段
     # 前面将jinja2的环境配置都赋值给env了，这里再把env存入app的dict中，这样app就知道要到哪儿去找模板，怎么解析模板。
     app['__templating__'] = env
+
+
 # 这个函数的作用就是当有http请求的时候，通过logging.info输出请求的信息，其中包括请求的方法和路径
 async def logger_factory(app, handler):
     async def logger(request):
         logging.info('Request: %s %s' % (request.method, request.path))
         # handler为处理函数，request为参数
         return await handler(request)
+
     return logger
 
 async def auth_factory(app, handler):
@@ -70,26 +71,7 @@ async def auth_factory(app, handler):
         return await handler(request)
     return auth
 
-async def data_factory(app, handler):
-    async def parse_data(request):
-        if request.method == 'POST':
-            if request.content_type.startswith('application/json'):
-                request.__data__ = await request.json()
-                logging.info('request json:%s' % str(request.__data__))
-            elif request.content_type.startswith('application/x-www-form-urlencoded'):
-                request.__data__ = await request.post()
-                logging.info('request form : %s' % str(request.__data__))
-        return await handler(request)
-    return parse_data
-# 请求对象request的处理工序流水线先后依次是：
-#     	logger_factory->response_factory->RequestHandler().__call__->get或post->handler
-# 对应的响应对象response的处理工序流水线先后依次是:
-# 由handler构造出要返回的具体对象
-# 然后在这个返回的对象上加上'__method__'和'__route__'属性，以标识别这个对象并使接下来的程序容易处理
-# RequestHandler目的就是从请求对象request的请求content中获取必要的参数，调用URL处理函数,然后把结果返回给response_factory
-# response_factory在拿到经过处理后的对象，经过一系列类型判断，构造出正确web.Response对象，以正确的方式返回给客户端
-# 在这个过程中，只关心handler的处理，其他的都走统一通道，如果需要差异化处理，就在通道中选择适合的地方添加处理代码。
-# 注：在response_factory中应用了jinja2来渲染模板文件
+# 函数返回值转化为`web.response`对象
 async def response_factory(app, handler):
     async def response(request):
         logging.info('Response handler...')
@@ -131,8 +113,10 @@ async def response_factory(app, handler):
         resp = web.Response(body=str(r).encode('utf-8'))
         resp.content_type = 'text/plain;charset=utf-8'
         return resp
+
     return response
 
+import datetime
 
 def datetime_filter(t):
     delta = int(time.time() - t)
@@ -150,21 +134,14 @@ def datetime_filter(t):
 
 async def init(loop):
     await orm.create_pool(loop=loop, **configs.db)
-    # middlewares(中间件)设置3个中间处理函数(都是装饰器)
-    # middlewares中的每个factory接受两个参数，app 和 handler(即middlewares中的下一个handler)
-    # 譬如这里logger_factory的handler参数其实就是auth_factory
-    # middlewares的最后一个元素的handler会通过routes查找到相应的，就是routes注册的对应handler处理函数
-    # 这是装饰模式的体现，logger_factory, auth_factory, response_factory都是URL处理函数前（如handler.index）的装饰功能
-    app = web.Application(loop=loop, middlewares=[logger_factory, auth_factory, response_factory])
-    init__jinja2(app, filters=dict(datetime=datetime_filter))
-    # 添加URL处理函数
+    app = web.Application(loop=loop, middlewares=[logger_factory, response_factory, auth_factory])
+    init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
-    # 添加CSS等静态文件路径
     add_static(app)
-    srv = await loop.create_server(app.make_handler(), '127.0.0.1', 10000)
-
-    logging.info('Server started at http://127.0.0.1:10000')
+    srv = await loop.create_server(app.make_handler(), '127.0.0.1', 9000)  # 监听IP + port
+    logging.info("server started at http://127.0.0.1:9000...")
     return srv
+
 
 # 获取eventloop
 loop = asyncio.get_event_loop()

@@ -1,29 +1,22 @@
-# -*- coding:utf-8 -*-
-"""Models for user,blog,comment"""
-import time
-import uuid
+import asyncio
+import time, uuid
+
+import orm
 from orm import Model, StringField, BooleanField, FloatField, TextField
 
-__author__ = 'CC'
-
-
-# 生成唯一标识符
-def next_id():
-    return '%015d%s000' % (int(time.time() * 1000), uuid.uuid4().hex)
-
+def next_id():  #定义随机生成id的方法，生成唯一标识符
+    return '%015d%s000' % (int(time.time()*1000), uuid.uuid4().hex)
 
 class User(Model):
     __table__ = 'users'
-
-    # 后面的id,email等会被实例的id,email覆盖
-    id = StringField(primary_key=True, default=next_id, ddl='varchar(50)')
+	# 后面的id,email等会被实例的id,email覆盖
+    id=StringField(primary_key=True, default=next_id, ddl='varchar(50)')
     email = StringField(ddl='varchar(50)')
     passwd = StringField(ddl='varchar(50)')
     admin = BooleanField()
     name = StringField(ddl='varchar(50)')
     image = StringField(ddl='varchar(500)')
     created_at = FloatField(default=time.time)
-
 
 class Blog(Model):
     __table__ = 'blogs'
@@ -37,7 +30,6 @@ class Blog(Model):
     content = TextField()
     created_at = FloatField(default=time.time)
 
-
 class Comment(Model):
     __table__ = 'comments'
 
@@ -50,34 +42,19 @@ class Comment(Model):
     created_at = FloatField(default=time.time)
 
 
+#测试部分
+if __name__ == '__main__':
+
+    async def test():
+        await orm.create_pool(loop, user='www-data', password='www-data', db='awesome')
+        u = User(name='Test', email='test@example.com', passwd='123456780', image='about:blank')
+        await u.save()
+        a = await u.findAll() #这个要打印才显示出来
+        print(a)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test())
+    orm.__pool.close()  #在关闭event loop之前，首先需要关闭连接池。
+    loop.run_until_complete(orm.__pool.wait_closed())#在关闭event loop之前，首先需要关闭连接池。
+    loop.close()

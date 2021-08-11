@@ -1,12 +1,18 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
 Configuration
 """
 
+__author__ = 'Michael Liao'
+
 import config_default
+
 
 class Dict(dict):
     """
-    simple but support access as x.y style.
+    Simple dict but support access as x.y style.
     """
 
     def __init__(self, names=(), values=(), **kw):
@@ -18,7 +24,7 @@ class Dict(dict):
         try:
             return self[key]
         except KeyError:
-            raise AttributeError(r"'Dict' object has no attribute like '%s'" % key)
+            raise AttributeError(r"'Dict' object has no attribute '%s'" % key)
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -36,12 +42,13 @@ def merge(defaults, override):
             r[k] = v
     return r
 
-# 增加x.y的取值功能
+
 def toDict(d):
     D = Dict()
     for k, v in d.items():
         D[k] = toDict(v) if isinstance(v, dict) else v
     return D
+
 
 configs = config_default.configs
 
@@ -52,18 +59,3 @@ except ImportError:
     pass
 
 configs = toDict(configs)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
